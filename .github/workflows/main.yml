@@ -1,18 +1,13 @@
 name: Runner SSH
 on: workflow_dispatch
-
 jobs:
   runner:
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     steps:
-      - name: Connect Tailscale
-        uses: tailscale/github-action@v2
+      - uses: tailscale/github-action@v2
         with:
           authkey: ${{ secrets.TS_AUTHKEY }}
-          args: --advertise-tags= --accept-routes --hostname=azure-runner
-
-      - name: Show IP & Keep Alive 6 Jam
-        run: |
+          hostname: gh-runner
+      - run: |
           tailscale ip -4
-          echo "SSH: ssh user@$(tailscale ip -4)"
           sleep 21600
