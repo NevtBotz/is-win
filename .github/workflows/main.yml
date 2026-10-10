@@ -1,60 +1,18 @@
-name: SSH Mesh WARP
-on:
-  workflow_dispatch
+name: Runner SSH
+on: workflow_dispatch
 
 jobs:
-  ssh:
-    runs-on: ubuntu-latest
-    timeout-minutes: 360
+  runner:
+    runs-on: self-hosted
     steps:
-      - name: Setup SSH
-        run: |
-          echo "runner:P@ssw0rd!" | sudo chpasswd
-          sudo sed -i 's/#*PasswordAuthentication.*/PasswordAuthentication yes/' /etc/ssh/sshd_config
-          sudo sed -i 's/PasswordAuthentication no/PasswordAuthentication yes/' /etc/ssh/sshd_config
-          sudo sed -i 's/#*PermitRootLogin.*/PermitRootLogin yes/' /etc/ssh/sshd_config
-          sudo service ssh restart
+      - name: Connect Tailscale
+        uses: tailscale/github-action@v2
+        with:
+          authkey: ${{ secrets.TS_AUTHKEY }}
+          args: --advertise-tags= --accept-routes --hostname=azure-runner
 
-      - name: Install Cloudflare WARP (sesuai command lu)
+      - name: Show IP & Keep Alive 6 Jam
         run: |
-          curl https://pkg.cloudflareclient.com/pubkey.gpg | sudo gpg --yes --dearmor --output /usr/share/keyrings/cloudflare-warp-archive-keyring.gpg
-          echo "deb [signed-by=/usr/share/keyrings/cloudflare-warp-archive-keyring.gpg] https://pkg.cloudflareclient.com/ jammy main" | sudo tee /etc/apt/sources.list.d/cloudflare-client.list
-          sudo apt-get update
-          sudo apt-get install -y cloudflare-warp
-          sudo sysctl -w net.ipv4.ip_forward=1
-          sudo sysctl -w net.ipv6.conf.all.forwarding=1
-          # INI YANG KURANG TADI - start service nya dulu
-          sudo systemctl start warp-svc
-          sleep 5
-          sudo systemctl status warp-svc --no-pager || true
-
-      - name: Install cloudflared + Join Team
-        env:
-          WARP_CONNECTOR_TOKEN: ${{ secrets.WARP_CONNECTOR_TOKEN }}
-        run: |
-          wget -q https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 -O cloudflared
-          chmod +x cloudflared
-          sudo mv cloudflared /usr/local/bin/
-          
-          if [ -z "$WARP_CONNECTOR_TOKEN" ]; then
-            echo "ERROR: Secret WARP_CONNECTOR_TOKEN belum di set!"
-            exit 1
-          fi
-
-          sudo warp-cli --accept-tos connector new $WARP_CONNECTOR_TOKEN
-          sudo warp-cli --accept-tos connect
-          sleep 15
-          echo "=== STATUS ==="
-          sudo warp-cli status || true
-          sudo warp-cli settings || true
-          echo "=== IP MESH 100.96 ==="
-          ip a | grep 100.96 || ip addr
-
-      - name: Keep Alive 6 Jam
-        run: |
-          echo "=========================================="
-          echo "Udah konek! IP Mesh ada di log atas"
-          echo "SSH: ssh runner@100.96.x.x"
-          echo "Pass: P@ssw0rd!"
-          echo "=========================================="
+          tailscale ip -4
+          echo "SSH: ssh user@$(tailscale ip -4)"
           sleep 21600
