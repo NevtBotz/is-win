@@ -8,6 +8,16 @@ jobs:
         with:
           authkey: ${{ secrets.TS_AUTHKEY }}
           hostname: gh-runner
-      - run: |
+
+      - name: Nyalain SSH + Tampilkan IP
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y openssh-server
+          echo "runner:runner" | sudo chpasswd
+          sudo service ssh start
+          echo "=========================="
           tailscale ip -4
+          echo "SSH: ssh runner@$(tailscale ip -4)"
+          echo "Pass: runner"
+          echo "=========================="
           sleep 21600
