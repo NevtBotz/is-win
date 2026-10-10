@@ -1,5 +1,6 @@
 name: SSH Mesh WARP
-on: workflow_dispatch
+on:
+  workflow_dispatch
 
 jobs:
   ssh:
@@ -8,19 +9,24 @@ jobs:
     steps:
       - name: Setup SSH
         run: |
-          echo "runner:Luna244!" | sudo chpasswd
+          echo "runner:P@ssw0rd!" | sudo chpasswd
           sudo sed -i 's/#*PasswordAuthentication.*/PasswordAuthentication yes/' /etc/ssh/sshd_config
           sudo sed -i 's/PasswordAuthentication no/PasswordAuthentication yes/' /etc/ssh/sshd_config
+          sudo sed -i 's/#*PermitRootLogin.*/PermitRootLogin yes/' /etc/ssh/sshd_config
           sudo service ssh restart
+          echo "=== SSH READY ==="
+          echo "User: runner"
+          echo "Pass: P@ssw0rd!"
 
       - name: Install Cloudflare WARP (sesuai command lu)
         run: |
           curl https://pkg.cloudflareclient.com/pubkey.gpg | sudo gpg --yes --dearmor --output /usr/share/keyrings/cloudflare-warp-archive-keyring.gpg
-          echo "deb [signed-by=/usr/share/keyrings/cloudflare-warp-archive-keyring.gpg] https://pkg.cloudflareclient.com/ $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/cloudflare-client.list
+          echo "deb [signed-by=/usr/share/keyrings/cloudflare-warp-archive-keyring.gpg] https://pkg.cloudflareclient.com/ jammy main" | sudo tee /etc/apt/sources.list.d/cloudflare-client.list
           sudo apt-get update
           sudo apt-get install -y cloudflare-warp
           sudo sysctl -w net.ipv4.ip_forward=1
           sudo sysctl -w net.ipv6.conf.all.forwarding=1
+          warp-cli --version
 
       - name: Install cloudflared + Join Team
         env:
@@ -29,17 +35,30 @@ jobs:
           wget -q https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 -O cloudflared
           chmod +x cloudflared
           sudo mv cloudflared /usr/local/bin/
+          cloudflared --version
           
-          # Daftarin runner ini ke team lu sebagai WARP Connector
-          echo $WARP_CONNECTOR_TOKEN | sudo warp-cli --accept-tos connector new
-          sudo warp-cli --accept-tos connect
-          sleep 10
-          warp-cli status
-          ip a | grep 100.96
+          # Cek token ada apa gak
+          if [ -z "$WARP_CONNECTOR_TOKEN" ]; then
+            echo "ERROR: Secret WARP_CONNECTOR_TOKEN belum di set di GitHub!"
+            exit 1
+          fi
 
-      - name: Keep Alive
+          # Daftarin ke team lu
+          sudo warp-cli --accept-tos connector new $WARP_CONNECTOR_TOKEN
+          sudo warp-cli --accept-tos connect
+          sleep 15
+          echo "=== WARP STATUS ==="
+          sudo warp-cli status || warp-cli status
+          echo "=== IP MESH ==="
+          ip a | grep 100.96 || ip addr show
+
+      - name: Keep Alive 6 Jam
         run: |
-          echo "Runner IP Mesh:"
-          warp-cli status
-          echo "Sekarang di laptop lu bisa: ssh runner@<IP 100.96.x.x yang muncul di atas>"
+          echo "=========================================="
+          echo "VPS GITHUB UDAH JADI SATU NETWORK SAMA HP & LAPTOP LU"
+          echo "Cek IP 100.96.x.x di log atas, terus SSH dari laptop:"
+          echo "ssh runner@100.96.x.x"
+          echo "Password: P@ssw0rd!"
+          echo "Status harus OREN selama 6 jam"
+          echo "=========================================="
           sleep 21600
